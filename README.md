@@ -1,6 +1,8 @@
+[![Build Actions Status](https://github.com/yantonov/ntfd/workflows/ci/badge.svg)](https://github.com/yantonov/ntfd/actions)
+
 ### Notification daemon
 
-It is a tiny server which allow to set configurable notification.  
+It is a tiny server which allow to configure notifications (notification handlers, to be more precise)..  
 
 #### Idea
 To abstract client from the notification handling details and to provide only the mechanism to trigger notifications.  
