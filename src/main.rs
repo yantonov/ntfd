@@ -11,8 +11,7 @@ async fn entry_point() -> Result<(), String> {
     match arguments.command() {
         Command::Server(server) => {
             let port_number = server.port()?;
-            // GET /hello/warp => 200 OK with body "Hello, warp!"
-            let hello = warp::path!("hello" / String)
+            let hello = warp::path!("notify" / String)
                 .map(|name| {
                     let environment = environment::system_environment();
                     let result = handler::execute(&environment, name);
