@@ -5,6 +5,15 @@ mod process;
 
 use warp::Filter;
 use cli::Command;
+use serde::{Serialize};
+
+#[derive(Serialize)]
+struct Response {
+    status: String,
+    code: i32,
+    stdout: String,
+    stderr: String,
+}
 
 async fn entry_point() -> Result<(), String> {
     let arguments = cli::arguments();
@@ -17,16 +26,20 @@ async fn entry_point() -> Result<(), String> {
                     let result = handler::execute(&environment, name);
                     match result {
                         Ok(ok) => {
-                            format!("{{status:\"Ok\", code: {}, stdout:\"{}\", stderr: \"{}\"}}",
-                                    ok.code(),
-                                    ok.stdout(),
-                                    ok.stderr())
+                            warp::reply::json(&Response {
+                                status: "Ok".to_string(),
+                                code: ok.code(),
+                                stdout: ok.stdout().to_string(),
+                                stderr: ok.stderr().to_string(),
+                            })
                         }
                         Err(e) => {
-                            format!("{{status:\"Err\", code: {}, stdout:\"{}\", stderr: \"{}\"}}",
-                                    -1,
-                                    "".to_string(),
-                                    e.to_string())
+                            warp::reply::json(&Response {
+                                status: "Err".to_string(),
+                                code: -1,
+                                stdout: "".to_string(),
+                                stderr: e.to_string(),
+                            })
                         }
                     }
                 });
