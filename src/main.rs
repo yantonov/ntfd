@@ -24,7 +24,7 @@ async fn main() {
     match entry_point().await {
         Ok(_) => std::process::exit(0),
         Err(message) => {
-            eprintln!("{}", message);
+            eprintln!("[ERROR] {}", message);
             std::process::exit(1);
         }
     }
