@@ -1,4 +1,7 @@
 mod cli;
+mod environment;
+mod handler;
+mod process;
 
 use warp::Filter;
 use cli::Command;
@@ -10,7 +13,18 @@ async fn entry_point() -> Result<(), String> {
             let port_number = server.port()?;
             // GET /hello/warp => 200 OK with body "Hello, warp!"
             let hello = warp::path!("hello" / String)
-                .map(|name| format!("Hello, {}!", name));
+                .map(|name| {
+                    let environment = environment::system_environment();
+                    let result = handler::execute(&environment, name);
+                    match result {
+                        Ok(_) => {
+                            format!("Ok!")
+                        }
+                        Err(e) => {
+                            format!("[ERROR] {}", e)
+                        }
+                    }
+                });
 
             Ok(warp::serve(hello)
                 .run(([127, 0, 0, 1], port_number))
