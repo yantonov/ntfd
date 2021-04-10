@@ -30,9 +30,9 @@ fn get_handler_executable(env: &Environment,
 pub fn execute(env: &Environment,
                name: String) -> Result<ExecutionResult, String> {
     let handler_executable = get_handler_executable(env, &name)?;
-    Ok(exec(&env.shell(),
-            &vec![
-                "-c".to_string(),
-                handler_executable.to_str().unwrap().to_string()
-            ]))
+    exec(&env.shell(),
+         &vec![
+             "-c".to_string(),
+             handler_executable.to_str().unwrap().to_string()
+         ])
 }

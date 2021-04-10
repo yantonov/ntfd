@@ -32,28 +32,17 @@ impl ExecutionResult {
 }
 
 pub fn exec(executable: &str,
-            args: &Vec<String>) -> ExecutionResult
+            args: &Vec<String>) -> Result<ExecutionResult, String>
 {
     let output = Command::new(executable)
         .args(args)
-        .output();
-
-    match output {
-        Ok(value) => {
-            ExecutionResult {
-                code: value.status.code().unwrap(),
-                stdout: String::from_utf8(value.stdout).unwrap(),
-                stderr: String::from_utf8(value.stderr).unwrap(),
-            }
-        }
-        Err(e) => {
-            ExecutionResult {
-                code: -1,
-                stdout: "".to_string(),
-                stderr: format!("Failed to execute process [{}]. {}",
-                                pretty_printed_command(executable, args),
-                                e),
-            }
-        }
-    }
+        .output()
+        .map_err(|e| format!("Failed to execute process [{}]. {}",
+                             pretty_printed_command(executable, args),
+                             e))?;
+    Ok(ExecutionResult {
+        code: output.status.code().unwrap(),
+        stdout: String::from_utf8(output.stdout).unwrap(),
+        stderr: String::from_utf8(output.stderr).unwrap(),
+    })
 }
