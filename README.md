@@ -19,6 +19,7 @@ See [examples](https://github.com/yantonov/ntfd/tree/master/examples/) configura
 #### Inspired by
 1. [Paukan](https://youtu.be/n1Fsz-I8Qag?t=285)
 2. [Napalm Death - You Suffer](https://www.youtube.com/watch?v=ybGOT4d2Hs8)
+3. [AnyBar](https://github.com/tonsky/AnyBar)
 
 #### TODO:
 1. Accept JSON payload and pass fields as an environment variables to the handling script
