@@ -1,4 +1,4 @@
-use std::process::Command;
+use std::process::{Command};
 
 fn pretty_printed_command(executable: &str,
                           args: &Vec<String>) -> String
@@ -11,21 +11,49 @@ fn pretty_printed_command(executable: &str,
     tokens.join(" ")
 }
 
+pub struct ExecutionResult {
+    code: i32,
+    stdout: String,
+    stderr: String,
+}
+
+impl ExecutionResult {
+    pub fn stdout(&self) -> &str {
+        &self.stdout
+    }
+
+    pub fn stderr(&self) -> &str {
+        &self.stderr
+    }
+
+    pub fn code(&self) -> i32 {
+        self.code
+    }
+}
+
 pub fn exec(executable: &str,
-            args: &Vec<String>) -> Result<Option<i32>, String>
+            args: &Vec<String>) -> ExecutionResult
 {
-    let pretty_printed_command = pretty_printed_command(executable, args);
-
-    let mut output = Command::new(executable)
+    let output = Command::new(executable)
         .args(args)
-        .spawn()
-        .map_err(|e| format!("Failed to execute process [{}]. {}",
-                             pretty_printed_command,
-                             e))?;
+        .output();
 
-    output.wait()
-        .map(|r| r.code())
-        .map_err(|e| format!("Failed to wait child process [{}]. {}",
-                             pretty_printed_command,
-                             e))
+    match output {
+        Ok(value) => {
+            ExecutionResult {
+                code: value.status.code().unwrap(),
+                stdout: String::from_utf8(value.stdout).unwrap(),
+                stderr: String::from_utf8(value.stderr).unwrap(),
+            }
+        }
+        Err(e) => {
+            ExecutionResult {
+                code: -1,
+                stdout: "".to_string(),
+                stderr: format!("Failed to execute process [{}]. {}",
+                                pretty_printed_command(executable, args),
+                                e),
+            }
+        }
+    }
 }

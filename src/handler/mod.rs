@@ -1,5 +1,5 @@
 use crate::environment::Environment;
-use crate::process::exec;
+use crate::process::{exec, ExecutionResult};
 use std::path::PathBuf;
 
 fn get_handler_executable(env: &Environment,
@@ -28,12 +28,11 @@ fn get_handler_executable(env: &Environment,
 }
 
 pub fn execute(env: &Environment,
-               name: String) -> Result<(), String> {
+               name: String) -> Result<ExecutionResult, String> {
     let handler_executable = get_handler_executable(env, &name)?;
-    exec(&env.shell(),
-         &vec![
-             "-c".to_string(),
-             handler_executable.to_str().unwrap().to_string()
-         ])
-        .map(|_code| ())
+    Ok(exec(&env.shell(),
+            &vec![
+                "-c".to_string(),
+                handler_executable.to_str().unwrap().to_string()
+            ]))
 }

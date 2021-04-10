@@ -3,4 +3,11 @@ set -o errexit -o nounset
 
 cd "$(dirname "$0")"
 
-afplay napalm_death_you_suffer.mp3
+# https://stackoverflow.com/questions/592620/how-can-i-check-if-a-program-exists-from-a-bash-script
+if command -v afplay &> /dev/null
+then
+    afplay napalm_death_you_suffer.mp3
+else
+    echo "afplay is not found, for ubuntu you can try vlc, for example"
+    exit 1
+fi

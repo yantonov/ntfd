@@ -16,11 +16,17 @@ async fn entry_point() -> Result<(), String> {
                     let environment = environment::system_environment();
                     let result = handler::execute(&environment, name);
                     match result {
-                        Ok(_) => {
-                            format!("Ok!")
+                        Ok(ok) => {
+                            format!("{{status:\"Ok\", code: {}, stdout:\"{}\", stderr: \"{}\"}}",
+                                    ok.code(),
+                                    ok.stdout(),
+                                    ok.stderr())
                         }
                         Err(e) => {
-                            format!("[ERROR] {}", e)
+                            format!("{{status:\"Err\", code: {}, stdout:\"{}\", stderr: \"{}\"}}",
+                                    -1,
+                                    "".to_string(),
+                                    e.to_string())
                         }
                     }
                 });
