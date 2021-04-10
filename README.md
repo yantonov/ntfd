@@ -2,7 +2,8 @@
 
 It is a tiny server which allow to set configurable notification.  
 
-Idea: abstract client from the notification handling.  
+#### Idea
+Abstract client from the notification handling and provider only the mechanism to trigger notifications.  
 
 #### Usage
 Application expose HTTP API at default port 4242.  
