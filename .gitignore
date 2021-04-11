@@ -3,3 +3,6 @@
 
 # build artifacts
 /target/
+
+# temporary files
+nohup.out
