@@ -2,19 +2,19 @@
 
 ### Notification daemon
 
-It is a tiny server which allow to configure notifications (notification handlers, to be more precise)..  
+It is a tiny server that allows configuring notifications (notification handlers, to be more precise).  
 
 #### Idea
 To abstract client from the notification handling details and to provide only the mechanism to trigger notifications.  
 
 #### Usage
-Application expose HTTP API at default port 4242.  
-You can trigger a notification:
+Application exposes HTTP API on default port 4242.  
+You can trigger a notification, for example, like that:
 ```
     curl 'http://127.0.0.1/notify/key'
 ```
 The key is used to find a notification handler inside the configuration directory:  
-(conf/key/run - executable script which can contain any logic that you want).  
+conf/key/run - an executable script which can contain any logic that you want.  
 If there is no handler then the default handler will be used (conf/default/run).  
 
 Check [examples](https://github.com/yantonov/ntfd/tree/master/examples/) direcory.
