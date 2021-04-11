@@ -43,10 +43,11 @@ async fn entry_point() -> Result<(), String> {
                         }
                     }
                 });
-
-            Ok(warp::serve(hello)
+            println!("Started {{pid={} port={}}}", std::process::id(), port_number);
+            warp::serve(hello)
                 .run(([127, 0, 0, 1], port_number))
-                .await)
+                .await;
+            Ok(())
         }
     }
 }
