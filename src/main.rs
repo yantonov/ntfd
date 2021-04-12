@@ -6,6 +6,7 @@ mod process;
 use warp::Filter;
 use cli::Command;
 use serde::{Serialize};
+use warp::http::StatusCode;
 
 #[derive(Serialize)]
 struct Response {
@@ -28,20 +29,24 @@ async fn entry_point() -> Result<(), String> {
                     let result = handler::execute(&environment, name, body);
                     match result {
                         Ok(ok) => {
-                            warp::reply::json(&Response {
-                                status: "Ok".to_string(),
-                                code: ok.code(),
-                                stdout: ok.stdout().to_string(),
-                                stderr: ok.stderr().to_string(),
-                            })
+                            warp::reply::with_status(
+                                warp::reply::json(&Response {
+                                    status: "Ok".to_string(),
+                                    code: ok.code(),
+                                    stdout: ok.stdout().to_string(),
+                                    stderr: ok.stderr().to_string(),
+                                }),
+                                StatusCode::OK)
                         }
                         Err(e) => {
-                            warp::reply::json(&Response {
-                                status: "Err".to_string(),
-                                code: -1,
-                                stdout: "".to_string(),
-                                stderr: e.to_string(),
-                            })
+                            warp::reply::with_status(
+                                warp::reply::json(&Response {
+                                    status: "Err".to_string(),
+                                    code: -1,
+                                    stdout: "".to_string(),
+                                    stderr: e.to_string(),
+                                }),
+                                StatusCode::BAD_REQUEST)
                         }
                     }
                 });
