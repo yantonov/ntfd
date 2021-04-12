@@ -31,11 +31,27 @@ impl ExecutionResult {
     }
 }
 
+pub struct EnvVar {
+    name: String,
+    value: String,
+}
+
+impl EnvVar {
+    pub fn new(name: &str, value: &str) -> EnvVar {
+        EnvVar {
+            name: name.to_string(),
+            value: value.to_string(),
+        }
+    }
+}
+
 pub fn exec(executable: &str,
-            args: &Vec<String>) -> Result<ExecutionResult, String>
+            args: &Vec<String>,
+            env_vars: &Vec<EnvVar>) -> Result<ExecutionResult, String>
 {
     let output = Command::new(executable)
         .args(args)
+        .envs(env_vars.iter().map(|item| (item.name.clone(), item.value.clone())).into_iter())
         .output()
         .map_err(|e| format!("Failed to execute process [{}]. {}",
                              pretty_printed_command(executable, args),

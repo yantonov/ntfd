@@ -17,12 +17,11 @@ The key is used to find a notification handler inside the configuration director
 conf/key/run - an executable script which can contain any logic that you want.  
 If there is no handler then the default handler will be used (conf/default/run).  
 
-Check [examples](https://github.com/yantonov/ntfd/tree/master/examples/) direcory.
-
 #### Inspired by
 1. [Paukan](https://youtu.be/n1Fsz-I8Qag?t=285)
 2. [Napalm Death - You Suffer](https://www.youtube.com/watch?v=ybGOT4d2Hs8)
 3. [AnyBar](https://github.com/tonsky/AnyBar)
 
-#### TODO:
-1. Accept JSON payload and pass fields as an environment variables to the handling script
+#### Examples
+1. [You suffer](https://github.com/yantonov/ntfd/tree/master/examples/you_suffer).
+2. [JSON payload](https://github.com/yantonov/ntfd/tree/master/examples/payload).

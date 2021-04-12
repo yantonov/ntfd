@@ -20,10 +20,12 @@ async fn entry_point() -> Result<(), String> {
     match arguments.command() {
         Command::Server(server) => {
             let port_number = server.port()?;
-            let hello = warp::path!("notify" / String)
-                .map(|name| {
+            let hello = warp::post()
+                .and(warp::path!("notify" / String))
+                .and(warp::body::bytes())
+                .map(|name, body| {
                     let environment = environment::system_environment();
-                    let result = handler::execute(&environment, name);
+                    let result = handler::execute(&environment, name, body);
                     match result {
                         Ok(ok) => {
                             warp::reply::json(&Response {
