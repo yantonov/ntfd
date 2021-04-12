@@ -29,14 +29,24 @@ async fn entry_point() -> Result<(), String> {
                     let result = handler::execute(&environment, name, body);
                     match result {
                         Ok(ok) => {
+                            let status_text = if ok.code() == 0 {
+                                "Ok"
+                            } else {
+                                "Err"
+                            };
+                            let http_status = if ok.code() == 0 {
+                                StatusCode::OK
+                            } else {
+                                StatusCode::BAD_REQUEST
+                            };
                             warp::reply::with_status(
                                 warp::reply::json(&Response {
-                                    status: "Ok".to_string(),
+                                    status: status_text.to_string(),
                                     code: ok.code(),
                                     stdout: ok.stdout().to_string(),
                                     stderr: ok.stderr().to_string(),
                                 }),
-                                StatusCode::OK)
+                                http_status)
                         }
                         Err(e) => {
                             warp::reply::with_status(
@@ -46,7 +56,7 @@ async fn entry_point() -> Result<(), String> {
                                     stdout: "".to_string(),
                                     stderr: e.to_string(),
                                 }),
-                                StatusCode::BAD_REQUEST)
+                                StatusCode::INTERNAL_SERVER_ERROR)
                         }
                     }
                 });
