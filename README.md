@@ -2,7 +2,8 @@
 
 ### Notification daemon
 
-It is a tiny server that allows configuring notifications (notification handlers, to be more precise).  
+It is a tiny HTTP server that provides interface to trigger notifications.  
+In other words: it is a launcher with minimalistic HTTP interface.
 
 #### Idea
 To abstract client from the notification handling details and to provide only the mechanism to trigger notifications.  
