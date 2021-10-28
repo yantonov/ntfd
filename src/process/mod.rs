@@ -1,10 +1,11 @@
 use std::process::{Command};
 
 fn pretty_printed_command(executable: &str,
-                          args: &Vec<String>) -> String
+                          args: &[String]) -> String
 {
-    let mut tokens: Vec<String> = vec![];
-    tokens.push(executable.to_string());
+    let mut tokens: Vec<String> = vec![
+        executable.to_string()
+    ];
     for arg in args {
         tokens.push(arg.clone());
     }
@@ -46,8 +47,8 @@ impl EnvVar {
 }
 
 pub fn exec(executable: &str,
-            args: &Vec<String>,
-            env_vars: &Vec<EnvVar>) -> Result<ExecutionResult, String>
+            args: &[String],
+            env_vars: &[EnvVar]) -> Result<ExecutionResult, String>
 {
     let output = Command::new(executable)
         .args(args)

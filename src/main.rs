@@ -54,7 +54,7 @@ async fn entry_point() -> Result<(), String> {
                                     status: "Err".to_string(),
                                     code: -1,
                                     stdout: "".to_string(),
-                                    stderr: e.to_string(),
+                                    stderr: e,
                                 }),
                                 StatusCode::INTERNAL_SERVER_ERROR)
                         }
