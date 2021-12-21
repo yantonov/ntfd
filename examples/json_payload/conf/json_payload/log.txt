@@ -1,0 +1,3 @@
+NTFD_JSON_BODY={"foo": "bar", "bar": "baz"}
+NTFD_JSON_FIELD_FOO=bar
+NTFD_JSON_FIELD_BAR=baz
