@@ -1,21 +1,21 @@
-use clap::{Clap, crate_version};
+use clap::Parser;
 
-#[derive(Clap)]
-#[clap(version = crate_version ! ())]
+#[derive(Parser)]
+#[clap(version)]
 struct Opts {
     #[clap(subcommand)]
     command: Command,
 }
 
-#[derive(Clap)]
+#[derive(Parser)]
 pub enum Command {
     #[clap(about = "run notification server", display_order = 0)]
     Server(Server)
 }
 
-#[derive(Clap)]
+#[derive(Parser)]
 pub struct Server {
-    #[clap(about = "port number (default port = 4242)", short, long, )]
+    #[clap(help = "port number (default port = 4242)", short, long)]
     port: Option<u16>,
 }
 
