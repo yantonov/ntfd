@@ -2,7 +2,9 @@ mod cli;
 mod environment;
 mod handler;
 mod process;
+mod server;
 
+use hyper::body::Bytes;
 use warp::Filter;
 use cli::Command;
 use serde::{Serialize};
@@ -21,10 +23,22 @@ async fn entry_point() -> Result<(), String> {
     match arguments.command() {
         Command::Server(server) => {
             let port_number = server.port()?;
+
             let hello = warp::post()
                 .and(warp::path!("notify" / String))
                 .and(warp::body::bytes())
-                .map(|name, body| {
+                .map(|name: String, body: Bytes| {
+                    let check_key = server::is_valid_key();
+                    if !check_key(&name) {
+                        return warp::reply::with_status(
+                            warp::reply::json(&Response {
+                                status: "Err".to_string(),
+                                code: -1,
+                                stdout: "".to_string(),
+                                stderr: "The Key should contain only alphanumeric characters".to_string(),
+                            }),
+                            StatusCode::INTERNAL_SERVER_ERROR);
+                    }
                     let environment = environment::system_environment();
                     let result = handler::execute(&environment, name, body);
                     match result {

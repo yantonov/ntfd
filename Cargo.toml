@@ -8,8 +8,9 @@ edition = "2018"
 
 [dependencies]
 clap = { version = "3.1.18", features = ["derive"] }
-tokio = { version = "1.19.2", features = ["full"] }
-warp = "0.3.1"
 hyper = "0.14.19" # force the transitive dependency
+regex = "1.5.6"
 serde = { version = "1.0.137", features = ["derive"] }
 serde_json = "1.0.81"
+tokio = { version = "1.19.2", features = ["full"] }
+warp = "0.3.1"
