@@ -6,7 +6,10 @@ It is a tiny HTTP server that provides interface to trigger notifications.
 In other words: it is a launcher with minimalistic HTTP interface.
 
 #### Idea
-To abstract client from the notification handling details and to provide only the mechanism to trigger notifications.  
+To abstract a client from the notification handling details   
+and to provide only the mechanism to trigger notifications.  
+
+By the way, it's something similar to [webhook](https://github.com/adnanh/webhook)
 
 #### Usage
 
