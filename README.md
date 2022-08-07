@@ -41,4 +41,4 @@ Directory structure:
 
 #### Examples
 1. [You suffer](https://github.com/yantonov/ntfd/tree/master/examples/you_suffer).
-2. [JSON payload](https://github.com/yantonov/ntfd/tree/master/examples/payload).
+2. [JSON payload](https://github.com/yantonov/ntfd/tree/master/examples/json_payload).
