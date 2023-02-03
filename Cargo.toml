@@ -7,10 +7,10 @@ edition = "2018"
 # See more keys and their definitions at https://doc.rust-lang.org/cargo/reference/manifest.html
 
 [dependencies]
-clap = { version = "3.2.3", features = ["derive"] }
-hyper = "0.14.19" # force the transitive dependency
-regex = "1.5.6"
-serde = { version = "1.0.137", features = ["derive"] }
-serde_json = "1.0.81"
-tokio = { version = "1.20.3", features = ["full"] }
+clap = { version = "4.1.4", features = ["derive"] }
+hyper = "0.14.24" # force the transitive dependency
+regex = "1.7.1"
+serde = { version = "1.0.152", features = ["derive"] }
+serde_json = "1.0.91"
+tokio = { version = "1.25.0", features = ["full"] }
 warp = "0.3.1"
