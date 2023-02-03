@@ -1,8 +1,8 @@
 use regex::Regex;
 
-pub fn is_valid_key() -> impl Fn(&str) -> bool {
+pub fn is_valid_key() -> Box<dyn Fn(&str) -> bool> {
     let re = Regex::new(&format!("^[a-zA-Z0-9_]+$")).unwrap();
-    move |key| re.is_match(key)
+    Box::new(move |key| re.is_match(key))
 }
 
 #[cfg(test)]
