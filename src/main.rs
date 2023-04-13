@@ -4,7 +4,7 @@ mod handler;
 mod process;
 mod server;
 
-use hyper::body::Bytes;
+use bytes::Bytes;
 use warp::Filter;
 use cli::Command;
 use serde::{Serialize};
