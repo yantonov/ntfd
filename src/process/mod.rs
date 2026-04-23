@@ -44,6 +44,14 @@ impl EnvVar {
             value: value.to_string(),
         }
     }
+
+    pub fn name(&self) -> &str {
+        &self.name
+    }
+
+    pub fn value(&self) -> &str {
+        &self.value
+    }
 }
 
 pub fn exec(executable: &str,
