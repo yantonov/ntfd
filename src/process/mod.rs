@@ -137,7 +137,7 @@ pub fn exec(executable: &str,
 {
     let output = Command::new(executable)
         .args(args)
-        .envs(env_vars.iter().map(|item| (item.name.clone(), item.value.clone())).into_iter())
+        .envs(env_vars.iter().map(|item| (item.name(), item.value())))
         .output()
         .map_err(|e| format!("Failed to execute process [{}]. {}",
                              pretty_printed_command(executable, args),
