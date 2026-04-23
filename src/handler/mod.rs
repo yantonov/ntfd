@@ -97,6 +97,52 @@ mod tests {
         let vars = env_vars(body, &json);
         assert_eq!(body, vars[0].value());
     }
+
+    #[test]
+    fn specific_handler_is_found_when_it_exists() {
+        let dir = tempfile::tempdir().unwrap();
+        let handler_dir = dir.path().join("conf").join("mykey");
+        std::fs::create_dir_all(&handler_dir).unwrap();
+        std::fs::File::create(handler_dir.join("run")).unwrap();
+
+        let env = crate::environment::Environment::for_dir(dir.path().to_path_buf());
+        let result = get_handler_executable(&env, "mykey").unwrap();
+        assert_eq!(handler_dir.join("run"), result);
+    }
+
+    #[test]
+    fn default_handler_is_used_when_specific_is_missing() {
+        let dir = tempfile::tempdir().unwrap();
+        let default_dir = dir.path().join("conf").join("default");
+        std::fs::create_dir_all(&default_dir).unwrap();
+        std::fs::File::create(default_dir.join("run")).unwrap();
+
+        let env = crate::environment::Environment::for_dir(dir.path().to_path_buf());
+        let result = get_handler_executable(&env, "nonexistent").unwrap();
+        assert_eq!(default_dir.join("run"), result);
+    }
+
+    #[test]
+    fn specific_handler_takes_priority_over_default() {
+        let dir = tempfile::tempdir().unwrap();
+        let specific_dir = dir.path().join("conf").join("mykey");
+        let default_dir = dir.path().join("conf").join("default");
+        std::fs::create_dir_all(&specific_dir).unwrap();
+        std::fs::create_dir_all(&default_dir).unwrap();
+        std::fs::File::create(specific_dir.join("run")).unwrap();
+        std::fs::File::create(default_dir.join("run")).unwrap();
+
+        let env = crate::environment::Environment::for_dir(dir.path().to_path_buf());
+        let result = get_handler_executable(&env, "mykey").unwrap();
+        assert_eq!(specific_dir.join("run"), result);
+    }
+
+    #[test]
+    fn error_is_returned_when_no_handler_exists() {
+        let dir = tempfile::tempdir().unwrap();
+        let env = crate::environment::Environment::for_dir(dir.path().to_path_buf());
+        assert!(get_handler_executable(&env, "missing").is_err());
+    }
 }
 
 pub fn execute(env: &Environment,

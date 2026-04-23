@@ -26,6 +26,16 @@ impl Environment {
     pub fn shell(&self) -> String {
         self.shell.to_string()
     }
+
+    #[cfg(test)]
+    pub fn for_dir(dir: PathBuf) -> Environment {
+        Environment {
+            executable_name: "test".to_string(),
+            executable_dir: dir,
+            args: vec![],
+            shell: std::env::var("SHELL").unwrap_or_else(|_| "/bin/sh".to_string()),
+        }
+    }
 }
 
 struct SystemEnvironment {}
