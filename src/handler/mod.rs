@@ -43,6 +43,62 @@ fn env_vars(body_str: &str, json_body: &Value) -> Vec<EnvVar> {
     result
 }
 
+#[cfg(test)]
+mod tests {
+    use super::*;
+
+    #[test]
+    fn empty_body_yields_only_json_body_var() {
+        let vars = env_vars("", &Value::Object(Map::new()));
+        assert_eq!(1, vars.len());
+        assert_eq!("NTFD_JSON_BODY", vars[0].name());
+        assert_eq!("", vars[0].value());
+    }
+
+    #[test]
+    fn json_string_field_is_extracted_as_env_var() {
+        let body = r#"{"title":"hello"}"#;
+        let json: Value = serde_json::from_str(body).unwrap();
+        let vars = env_vars(body, &json);
+        assert_eq!(2, vars.len());
+        let field = vars.iter().find(|v| v.name() == "NTFD_JSON_FIELD_TITLE").unwrap();
+        assert_eq!("hello", field.value());
+    }
+
+    #[test]
+    fn json_field_names_are_uppercased() {
+        let body = r#"{"lowercase":"value"}"#;
+        let json: Value = serde_json::from_str(body).unwrap();
+        let vars = env_vars(body, &json);
+        assert!(vars.iter().any(|v| v.name() == "NTFD_JSON_FIELD_LOWERCASE"));
+    }
+
+    #[test]
+    fn multiple_json_fields_are_all_extracted() {
+        let body = r#"{"a":"1","b":"2"}"#;
+        let json: Value = serde_json::from_str(body).unwrap();
+        let vars = env_vars(body, &json);
+        assert_eq!(3, vars.len());
+    }
+
+    #[test]
+    fn non_object_json_yields_only_body_var() {
+        let body = r#""just a string""#;
+        let json: Value = serde_json::from_str(body).unwrap();
+        let vars = env_vars(body, &json);
+        assert_eq!(1, vars.len());
+        assert_eq!("NTFD_JSON_BODY", vars[0].name());
+    }
+
+    #[test]
+    fn raw_json_body_is_preserved_in_body_var() {
+        let body = r#"{"key":"val"}"#;
+        let json: Value = serde_json::from_str(body).unwrap();
+        let vars = env_vars(body, &json);
+        assert_eq!(body, vars[0].value());
+    }
+}
+
 pub fn execute(env: &Environment,
                name: String,
                body: Bytes) -> Result<ExecutionResult, String> {
