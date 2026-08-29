@@ -5,6 +5,7 @@ mod process;
 mod server;
 
 use bytes::Bytes;
+use std::sync::Arc;
 use warp::Filter;
 use cli::Command;
 use serde::{Serialize};
@@ -23,11 +24,14 @@ async fn entry_point() -> Result<(), String> {
     match arguments.command() {
         Command::Server(server) => {
             let port_number = server.port()?;
+            // resolved once at startup so that a broken environment fails
+            // loudly here instead of on every request
+            let environment = Arc::new(environment::system_environment()?);
 
             let hello = warp::post()
                 .and(warp::path!("notify" / String))
                 .and(warp::body::bytes())
-                .map(|name: String, body: Bytes| {
+                .map(move |name: String, body: Bytes| {
                     let check_key = server::is_valid_key();
                     if !check_key(&name) {
                         return warp::reply::with_status(
@@ -39,7 +43,6 @@ async fn entry_point() -> Result<(), String> {
                             }),
                             StatusCode::INTERNAL_SERVER_ERROR);
                     }
-                    let environment = environment::system_environment();
                     let result = handler::execute(&environment, name, body);
                     match result {
                         Ok(ok) => {
