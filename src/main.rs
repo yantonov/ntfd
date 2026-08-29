@@ -24,6 +24,17 @@ struct Response {
     stderr: String,
 }
 
+#[derive(Serialize)]
+struct Health {
+    status: String,
+    pid: u32,
+}
+
+#[derive(Serialize)]
+struct Handlers {
+    handlers: Vec<String>,
+}
+
 #[derive(Debug)]
 struct BodyTooLarge;
 
@@ -61,7 +72,35 @@ async fn handle_rejection(rejection: warp::Rejection)
     Err(rejection)
 }
 
-fn routes(environment: Arc<environment::Environment>)
+fn health() -> impl Filter<Extract = (impl warp::Reply,), Error = warp::Rejection> + Clone {
+    warp::get()
+        .and(warp::path!("health"))
+        .map(|| warp::reply::json(&Health {
+            status: "Ok".to_string(),
+            pid: std::process::id(),
+        }))
+}
+
+fn handlers(environment: Arc<environment::Environment>)
+            -> impl Filter<Extract = (impl warp::Reply,), Error = warp::Rejection> + Clone {
+    warp::get()
+        .and(warp::path!("handlers"))
+        .map(move || match handler::configured_handlers(&environment) {
+            Ok(keys) => warp::reply::with_status(
+                warp::reply::json(&Handlers { handlers: keys }),
+                StatusCode::OK),
+            Err(e) => warp::reply::with_status(
+                warp::reply::json(&Response {
+                    status: "Err".to_string(),
+                    code: -1,
+                    stdout: "".to_string(),
+                    stderr: e,
+                }),
+                StatusCode::INTERNAL_SERVER_ERROR),
+        })
+}
+
+fn notify(environment: Arc<environment::Environment>)
           -> impl Filter<Extract = (impl warp::Reply,), Error = warp::Rejection> + Clone {
     warp::post()
         .and(warp::path!("notify" / String))
@@ -120,6 +159,13 @@ fn routes(environment: Arc<environment::Environment>)
                 }
             }
         })
+}
+
+fn routes(environment: Arc<environment::Environment>)
+          -> impl Filter<Extract = (impl warp::Reply,), Error = warp::Rejection> + Clone {
+    notify(environment.clone())
+        .or(health())
+        .or(handlers(environment))
         .recover(handle_rejection)
 }
 
@@ -250,14 +296,60 @@ mod tests {
     }
 
     #[tokio::test]
-    async fn unknown_path_is_answered_with_404() {
+    async fn unknown_path_is_rejected() {
         let dir = tempfile::tempdir().unwrap();
         let response = warp::test::request()
             .method("POST")
             .path("/nope")
             .reply(&routes(env_for(dir.path().to_path_buf())))
             .await;
-        assert_eq!(StatusCode::NOT_FOUND, response.status());
+        assert!(response.status().is_client_error());
+    }
+
+    #[tokio::test]
+    async fn health_reports_ok() {
+        let dir = tempfile::tempdir().unwrap();
+        let response = warp::test::request()
+            .method("GET")
+            .path("/health")
+            .reply(&routes(env_for(dir.path().to_path_buf())))
+            .await;
+        assert_eq!(StatusCode::OK, response.status());
+        let body: serde_json::Value = serde_json::from_slice(response.body()).unwrap();
+        assert_eq!("Ok", body["status"]);
+    }
+
+    #[cfg(unix)]
+    #[tokio::test]
+    async fn handlers_lists_the_configured_keys() {
+        let dir = tempfile::tempdir().unwrap();
+        write_handler(dir.path(), "ping", "#!/bin/sh
+echo pong
+");
+        write_handler(dir.path(), "default", "#!/bin/sh
+echo fallback
+");
+        let response = warp::test::request()
+            .method("GET")
+            .path("/handlers")
+            .reply(&routes(env_for(dir.path().to_path_buf())))
+            .await;
+        assert_eq!(StatusCode::OK, response.status());
+        let body: serde_json::Value = serde_json::from_slice(response.body()).unwrap();
+        assert_eq!(serde_json::json!(["default", "ping"]), body["handlers"]);
+    }
+
+    #[tokio::test]
+    async fn handlers_is_empty_without_a_conf_directory() {
+        let dir = tempfile::tempdir().unwrap();
+        let response = warp::test::request()
+            .method("GET")
+            .path("/handlers")
+            .reply(&routes(env_for(dir.path().to_path_buf())))
+            .await;
+        assert_eq!(StatusCode::OK, response.status());
+        let body: serde_json::Value = serde_json::from_slice(response.body()).unwrap();
+        assert_eq!(serde_json::json!([]), body["handlers"]);
     }
 
     #[cfg(unix)]

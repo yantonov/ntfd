@@ -56,6 +56,21 @@ fn env_vars(body_str: &str, json_body: &Value) -> Vec<EnvVar> {
 }
 
 
+pub fn configured_handlers(env: &Environment) -> Result<Vec<String>, String> {
+    let conf_dir = env.executable_dir().join("conf");
+    let entries = match std::fs::read_dir(&conf_dir) {
+        Ok(entries) => entries,
+        Err(_) => return Ok(vec![]),
+    };
+    let mut keys: Vec<String> = entries
+        .filter_map(|entry| entry.ok())
+        .filter(|entry| entry.path().join("run").exists())
+        .filter_map(|entry| entry.file_name().into_string().ok())
+        .collect();
+    keys.sort();
+    Ok(keys)
+}
+
 pub async fn execute(env: &Environment,
                      name: String,
                      body: Bytes) -> Result<ExecutionResult, String> {
@@ -282,6 +297,28 @@ echo started
         assert_eq!(0, result.code());
         assert_eq!("started
 ", result.stdout());
+    }
+
+    #[test]
+    fn configured_handlers_lists_directories_holding_a_run_file() {
+        let dir = tempfile::tempdir().unwrap();
+        for key in ["zulu", "alpha"] {
+            let handler_dir = dir.path().join("conf").join(key);
+            std::fs::create_dir_all(&handler_dir).unwrap();
+            std::fs::File::create(handler_dir.join("run")).unwrap();
+        }
+        std::fs::create_dir_all(dir.path().join("conf").join("empty")).unwrap();
+
+        let env = crate::environment::Environment::for_dir(dir.path().to_path_buf());
+        assert_eq!(vec!["alpha".to_string(), "zulu".to_string()],
+                   configured_handlers(&env).unwrap());
+    }
+
+    #[test]
+    fn configured_handlers_is_empty_without_a_conf_directory() {
+        let dir = tempfile::tempdir().unwrap();
+        let env = crate::environment::Environment::for_dir(dir.path().to_path_buf());
+        assert!(configured_handlers(&env).unwrap().is_empty());
     }
 
     #[test]
