@@ -23,8 +23,8 @@ fn get_handler_executable(env: &Environment,
             Ok(default_handler_executable)
         } else {
             Err(format!("cannot find neither executable {} nor default executable {}",
-                        handler_executable.to_str().unwrap(),
-                        default_handler_executable.to_str().unwrap()))
+                        handler_executable.display(),
+                        default_handler_executable.display()))
         }
     }
 }

@@ -12,6 +12,23 @@ fn pretty_printed_command(executable: &str,
     tokens.join(" ")
 }
 
+/// Exit code of a finished process.
+/// A process terminated by a signal has no exit code of its own,
+/// it is reported as 128 + signal, the same way a shell does.
+#[cfg(unix)]
+fn exit_code(status: &std::process::ExitStatus) -> i32 {
+    use std::os::unix::process::ExitStatusExt;
+    status
+        .code()
+        .or_else(|| status.signal().map(|signal| 128 + signal))
+        .unwrap_or(-1)
+}
+
+#[cfg(not(unix))]
+fn exit_code(status: &std::process::ExitStatus) -> i32 {
+    status.code().unwrap_or(-1)
+}
+
 pub struct ExecutionResult {
     code: i32,
     stdout: String,
@@ -124,6 +141,21 @@ mod tests {
 
     #[cfg(unix)]
     #[test]
+    fn exec_reports_signal_termination_as_128_plus_signal() {
+        let result = exec("/bin/sh", &["-c".to_string(), "kill -9 $$".to_string()], &[]).unwrap();
+        assert_eq!(137, result.code());
+    }
+
+    #[cfg(unix)]
+    #[test]
+    fn exec_does_not_panic_on_invalid_utf8_output() {
+        let result = exec("/bin/sh", &["-c".to_string(), "printf '\\377'".to_string()], &[]).unwrap();
+        assert_eq!(0, result.code());
+        assert_eq!("\u{fffd}", result.stdout());
+    }
+
+    #[cfg(unix)]
+    #[test]
     fn exec_passes_env_vars_to_subprocess() {
         let vars = vec![EnvVar::new("TEST_VAR", "hello_world")];
         let result = exec("/bin/sh", &["-c".to_string(), "echo $TEST_VAR".to_string()], &vars).unwrap();
@@ -143,8 +175,8 @@ pub fn exec(executable: &str,
                              pretty_printed_command(executable, args),
                              e))?;
     Ok(ExecutionResult {
-        code: output.status.code().unwrap(),
-        stdout: String::from_utf8(output.stdout).unwrap(),
-        stderr: String::from_utf8(output.stderr).unwrap(),
+        code: exit_code(&output.status),
+        stdout: String::from_utf8_lossy(&output.stdout).into_owned(),
+        stderr: String::from_utf8_lossy(&output.stderr).into_owned(),
     })
 }
