@@ -34,10 +34,15 @@ fn env_vars(body_str: &str, json_body: &Value) -> Vec<EnvVar> {
         EnvVar::new("NTFD_JSON_BODY", body_str)
     ];
     if let Value::Object(object) = json_body {
-        for key in object.keys().into_iter() {
+        for (key, value) in object {
+            // strings are passed as is, anything else keeps its json representation
+            let value_str = match value {
+                Value::String(s) => s.clone(),
+                other => other.to_string(),
+            };
             result.push(
                 EnvVar::new(format!("NTFD_JSON_FIELD_{}", key.to_uppercase()).as_str(),
-                object.get(key).unwrap().as_str().unwrap()))
+                            value_str.as_str()))
         }
     }
     result
@@ -63,6 +68,50 @@ mod tests {
         assert_eq!(2, vars.len());
         let field = vars.iter().find(|v| v.name() == "NTFD_JSON_FIELD_TITLE").unwrap();
         assert_eq!("hello", field.value());
+    }
+
+    #[test]
+    fn numeric_field_is_passed_as_json_representation() {
+        let body = r#"{"count":42}"#;
+        let json: Value = serde_json::from_str(body).unwrap();
+        let vars = env_vars(body, &json);
+        let field = vars.iter().find(|v| v.name() == "NTFD_JSON_FIELD_COUNT").unwrap();
+        assert_eq!("42", field.value());
+    }
+
+    #[test]
+    fn boolean_field_is_passed_as_json_representation() {
+        let body = r#"{"enabled":true}"#;
+        let json: Value = serde_json::from_str(body).unwrap();
+        let vars = env_vars(body, &json);
+        let field = vars.iter().find(|v| v.name() == "NTFD_JSON_FIELD_ENABLED").unwrap();
+        assert_eq!("true", field.value());
+    }
+
+    #[test]
+    fn null_field_is_passed_as_json_representation() {
+        let body = r#"{"payload":null}"#;
+        let json: Value = serde_json::from_str(body).unwrap();
+        let vars = env_vars(body, &json);
+        let field = vars.iter().find(|v| v.name() == "NTFD_JSON_FIELD_PAYLOAD").unwrap();
+        assert_eq!("null", field.value());
+    }
+
+    #[test]
+    fn nested_field_is_passed_as_json_representation() {
+        let body = r#"{"outer":{"inner":1}}"#;
+        let json: Value = serde_json::from_str(body).unwrap();
+        let vars = env_vars(body, &json);
+        let field = vars.iter().find(|v| v.name() == "NTFD_JSON_FIELD_OUTER").unwrap();
+        assert_eq!(r#"{"inner":1}"#, field.value());
+    }
+
+    #[test]
+    fn mixed_field_types_do_not_panic() {
+        let body = r#"{"a":"s","b":1,"c":true,"d":null,"e":[1,2]}"#;
+        let json: Value = serde_json::from_str(body).unwrap();
+        let vars = env_vars(body, &json);
+        assert_eq!(6, vars.len());
     }
 
     #[test]
