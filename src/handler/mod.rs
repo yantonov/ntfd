@@ -29,13 +29,20 @@ fn get_handler_executable(env: &Environment,
     }
 }
 
+fn is_valid_field_name(key: &str) -> bool {
+    !key.is_empty()
+        && key.bytes().all(|b| b.is_ascii_alphanumeric() || b == b'_')
+}
+
 fn env_vars(body_str: &str, json_body: &Value) -> Vec<EnvVar> {
     let mut result: Vec<EnvVar> = vec![
         EnvVar::new("NTFD_JSON_BODY", body_str)
     ];
     if let Value::Object(object) = json_body {
         for (key, value) in object {
-            // strings are passed as is, anything else keeps its json representation
+            if !is_valid_field_name(key) {
+                continue;
+            }
             let value_str = match value {
                 Value::String(s) => s.clone(),
                 other => other.to_string(),
@@ -112,6 +119,55 @@ mod tests {
         let json: Value = serde_json::from_str(body).unwrap();
         let vars = env_vars(body, &json);
         assert_eq!(6, vars.len());
+    }
+
+    #[test]
+    fn field_name_with_an_equals_sign_is_skipped() {
+        let body = r#"{"a=b":"x","ok":"y"}"#;
+        let json: Value = serde_json::from_str(body).unwrap();
+        let vars = env_vars(body, &json);
+        assert_eq!(2, vars.len());
+        assert!(vars.iter().any(|v| v.name() == "NTFD_JSON_FIELD_OK"));
+    }
+
+    #[test]
+    fn field_name_with_a_nul_byte_is_skipped() {
+        let body = r#"{"a\u0000b":"x"}"#;
+        let json: Value = serde_json::from_str(body).unwrap();
+        let vars = env_vars(body, &json);
+        assert_eq!(1, vars.len());
+    }
+
+    #[test]
+    fn field_name_with_a_dash_is_skipped() {
+        let body = r#"{"a-b":"x"}"#;
+        let json: Value = serde_json::from_str(body).unwrap();
+        let vars = env_vars(body, &json);
+        assert_eq!(1, vars.len());
+    }
+
+    #[test]
+    fn field_name_with_a_space_is_skipped() {
+        let body = r#"{"a b":"x"}"#;
+        let json: Value = serde_json::from_str(body).unwrap();
+        let vars = env_vars(body, &json);
+        assert_eq!(1, vars.len());
+    }
+
+    #[test]
+    fn empty_field_name_is_skipped() {
+        let body = r#"{"":"x"}"#;
+        let json: Value = serde_json::from_str(body).unwrap();
+        let vars = env_vars(body, &json);
+        assert_eq!(1, vars.len());
+    }
+
+    #[test]
+    fn skipped_field_still_reaches_the_handler_through_the_raw_body() {
+        let body = r#"{"a-b":"x"}"#;
+        let json: Value = serde_json::from_str(body).unwrap();
+        let vars = env_vars(body, &json);
+        assert_eq!(body, vars[0].value());
     }
 
     #[test]
