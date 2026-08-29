@@ -6,6 +6,7 @@ mod server;
 
 use bytes::Bytes;
 use std::sync::Arc;
+use std::time::Instant;
 use warp::Filter;
 use cli::Command;
 use serde::{Serialize};
@@ -70,6 +71,7 @@ fn routes(environment: Arc<environment::Environment>)
             let environment = environment.clone();
             async move {
                 if !server::is_valid_key(&name) {
+                    eprintln!("[WARN] rejected key {:?}", name);
                     return warp::reply::with_status(
                         warp::reply::json(&Response {
                             status: "Err".to_string(),
@@ -79,9 +81,12 @@ fn routes(environment: Arc<environment::Environment>)
                         }),
                         StatusCode::BAD_REQUEST);
                 }
-                let result = handler::execute(&environment, name, body).await;
+                let started = Instant::now();
+                let result = handler::execute(&environment, name.clone(), body).await;
+                let elapsed = started.elapsed().as_millis();
                 match result {
                     Ok(ok) => {
+                        println!("{} code={} in {}ms", name, ok.code(), elapsed);
                         let status_text = if ok.code() == 0 {
                             "Ok"
                         } else {
@@ -102,6 +107,7 @@ fn routes(environment: Arc<environment::Environment>)
                             http_status)
                     }
                     Err(e) => {
+                        eprintln!("[ERROR] {} failed in {}ms: {}", name, elapsed, e);
                         warp::reply::with_status(
                             warp::reply::json(&Response {
                                 status: "Err".to_string(),
