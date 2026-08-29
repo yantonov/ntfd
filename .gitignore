@@ -6,3 +6,6 @@
 
 # temporary files
 nohup.out
+
+# example output
+examples/json_payload/conf/json_payload/log.txt
