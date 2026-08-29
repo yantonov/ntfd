@@ -1,10 +1,11 @@
+use std::path::Path;
 use std::process::{Command};
 
-fn pretty_printed_command(executable: &str,
+fn pretty_printed_command(executable: &Path,
                           args: &[String]) -> String
 {
     let mut tokens: Vec<String> = vec![
-        executable.to_string()
+        executable.display().to_string()
     ];
     for arg in args {
         tokens.push(arg.clone());
@@ -107,49 +108,49 @@ mod tests {
 
     #[test]
     fn exec_returns_err_for_missing_executable() {
-        let result = exec("/nonexistent/binary", &[], &[]);
+        let result = exec(Path::new("/nonexistent/binary"), &[], &[]);
         assert!(result.is_err());
     }
 
     #[cfg(unix)]
     #[test]
     fn exec_captures_zero_exit_code() {
-        let result = exec("/bin/sh", &["-c".to_string(), "exit 0".to_string()], &[]).unwrap();
+        let result = exec(Path::new("/bin/sh"), &["-c".to_string(), "exit 0".to_string()], &[]).unwrap();
         assert_eq!(0, result.code());
     }
 
     #[cfg(unix)]
     #[test]
     fn exec_captures_nonzero_exit_code() {
-        let result = exec("/bin/sh", &["-c".to_string(), "exit 42".to_string()], &[]).unwrap();
+        let result = exec(Path::new("/bin/sh"), &["-c".to_string(), "exit 42".to_string()], &[]).unwrap();
         assert_eq!(42, result.code());
     }
 
     #[cfg(unix)]
     #[test]
     fn exec_captures_stdout() {
-        let result = exec("/bin/sh", &["-c".to_string(), "echo hello".to_string()], &[]).unwrap();
+        let result = exec(Path::new("/bin/sh"), &["-c".to_string(), "echo hello".to_string()], &[]).unwrap();
         assert_eq!("hello\n", result.stdout());
     }
 
     #[cfg(unix)]
     #[test]
     fn exec_captures_stderr() {
-        let result = exec("/bin/sh", &["-c".to_string(), "echo error >&2".to_string()], &[]).unwrap();
+        let result = exec(Path::new("/bin/sh"), &["-c".to_string(), "echo error >&2".to_string()], &[]).unwrap();
         assert_eq!("error\n", result.stderr());
     }
 
     #[cfg(unix)]
     #[test]
     fn exec_reports_signal_termination_as_128_plus_signal() {
-        let result = exec("/bin/sh", &["-c".to_string(), "kill -9 $$".to_string()], &[]).unwrap();
+        let result = exec(Path::new("/bin/sh"), &["-c".to_string(), "kill -9 $$".to_string()], &[]).unwrap();
         assert_eq!(137, result.code());
     }
 
     #[cfg(unix)]
     #[test]
     fn exec_does_not_panic_on_invalid_utf8_output() {
-        let result = exec("/bin/sh", &["-c".to_string(), "printf '\\377'".to_string()], &[]).unwrap();
+        let result = exec(Path::new("/bin/sh"), &["-c".to_string(), "printf '\\377'".to_string()], &[]).unwrap();
         assert_eq!(0, result.code());
         assert_eq!("\u{fffd}", result.stdout());
     }
@@ -158,12 +159,12 @@ mod tests {
     #[test]
     fn exec_passes_env_vars_to_subprocess() {
         let vars = vec![EnvVar::new("TEST_VAR", "hello_world")];
-        let result = exec("/bin/sh", &["-c".to_string(), "echo $TEST_VAR".to_string()], &vars).unwrap();
+        let result = exec(Path::new("/bin/sh"), &["-c".to_string(), "echo $TEST_VAR".to_string()], &vars).unwrap();
         assert_eq!("hello_world\n", result.stdout());
     }
 }
 
-pub fn exec(executable: &str,
+pub fn exec(executable: &Path,
             args: &[String],
             env_vars: &[EnvVar]) -> Result<ExecutionResult, String>
 {

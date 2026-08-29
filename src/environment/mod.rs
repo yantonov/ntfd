@@ -5,7 +5,6 @@ pub struct Environment {
     executable_name: String,
     executable_dir: PathBuf,
     args: Vec<String>,
-    shell: String,
 }
 
 impl Environment {
@@ -23,17 +22,12 @@ impl Environment {
         &self.args[1..self.args.len()]
     }
 
-    pub fn shell(&self) -> String {
-        self.shell.to_string()
-    }
-
     #[cfg(test)]
     pub fn for_dir(dir: PathBuf) -> Environment {
         Environment {
             executable_name: "test".to_string(),
             executable_dir: dir,
             args: vec![],
-            shell: std::env::var("SHELL").unwrap_or_else(|_| "/bin/sh".to_string()),
         }
     }
 }
@@ -66,11 +60,6 @@ impl SystemEnvironment {
     pub fn call_arguments(&self) -> Vec<String> {
         env::args().collect()
     }
-
-    pub fn shell(&self) -> Result<String, &str> {
-        env::var("SHELL")
-            .map_err(|_| "SHELL environment variable is not defined")
-    }
 }
 
 pub fn system_environment() -> Result<Environment, String> {
@@ -79,6 +68,5 @@ pub fn system_environment() -> Result<Environment, String> {
         executable_name: sys_env.executable_name()?,
         executable_dir: sys_env.executable_dir()?,
         args: sys_env.call_arguments(),
-        shell: sys_env.shell().map_err(|e| e.to_string())?,
     })
 }

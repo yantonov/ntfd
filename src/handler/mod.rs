@@ -186,6 +186,31 @@ mod tests {
         assert_eq!(specific_dir.join("run"), result);
     }
 
+    #[cfg(unix)]
+    #[test]
+    fn handler_runs_when_the_install_path_contains_a_space() {
+        use std::io::Write;
+        use std::os::unix::fs::PermissionsExt;
+
+        let root = tempfile::tempdir().unwrap();
+        let dir = root.path().join("my tools");
+        let handler_dir = dir.join("conf").join("spaced");
+        std::fs::create_dir_all(&handler_dir).unwrap();
+        let run = handler_dir.join("run");
+        let mut file = std::fs::File::create(&run).unwrap();
+        file.write_all(b"#!/bin/sh
+echo started
+").unwrap();
+        drop(file);
+        std::fs::set_permissions(&run, std::fs::Permissions::from_mode(0o755)).unwrap();
+
+        let env = crate::environment::Environment::for_dir(dir);
+        let result = execute(&env, "spaced".to_string(), Bytes::new()).unwrap();
+        assert_eq!(0, result.code());
+        assert_eq!("started
+", result.stdout());
+    }
+
     #[test]
     fn error_is_returned_when_no_handler_exists() {
         let dir = tempfile::tempdir().unwrap();
@@ -207,10 +232,5 @@ pub fn execute(env: &Environment,
             .map_err(|_| "cannot parse json")?
     };
     let env_vars = env_vars(body_str, &json_body);
-    exec(&env.shell(),
-         &[
-             "-c".to_string(),
-             handler_executable.to_str().unwrap().to_string()
-         ],
-         &env_vars)
+    exec(&handler_executable, &[], &env_vars)
 }
