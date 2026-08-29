@@ -16,7 +16,7 @@ By the way, it's something similar to [webhook](https://github.com/adnanh/webhoo
 Application exposes HTTP API on default port 4242.  
 You can trigger a notification, for example, like that:
 ```
-    curl 'http://127.0.0.1/notify/key'
+    curl -X POST 'http://127.0.0.1:4242/notify/key'
 ```
 The key is used to find a notification handler inside the configuration directory:  
 conf/key/run - an executable script which can contain any logic that you want.  
