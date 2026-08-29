@@ -9,37 +9,37 @@ mod tests {
 
     #[test]
     fn invalid_chars() {
-        assert_eq!(false, is_valid_key("k1/../k2"));
-        assert_eq!(false, is_valid_key("k1-k2"));
+        assert!(!is_valid_key("k1/../k2"));
+        assert!(!is_valid_key("k1-k2"));
     }
 
     #[test]
     fn valid_chars() {
-        assert_eq!(true, is_valid_key("abc_def_012"));
+        assert!(is_valid_key("abc_def_012"));
     }
 
     #[test]
     fn empty_key_is_invalid() {
-        assert_eq!(false, is_valid_key(""));
+        assert!(!is_valid_key(""));
     }
 
     #[test]
     fn single_char_key_is_valid() {
-        assert_eq!(true, is_valid_key("a"));
+        assert!(is_valid_key("a"));
     }
 
     #[test]
     fn numbers_only_key_is_valid() {
-        assert_eq!(true, is_valid_key("0123456789"));
+        assert!(is_valid_key("0123456789"));
     }
 
     #[test]
     fn uppercase_key_is_valid() {
-        assert_eq!(true, is_valid_key("ABC"));
+        assert!(is_valid_key("ABC"));
     }
 
     #[test]
     fn key_with_space_is_invalid() {
-        assert_eq!(false, is_valid_key("key name"));
+        assert!(!is_valid_key("key name"));
     }
 }

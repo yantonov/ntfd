@@ -55,6 +55,23 @@ fn env_vars(body_str: &str, json_body: &Value) -> Vec<EnvVar> {
     result
 }
 
+
+pub async fn execute(env: &Environment,
+                     name: String,
+                     body: Bytes) -> Result<ExecutionResult, String> {
+    let handler_executable = get_handler_executable(env, &name)?;
+    let body_str = std::str::from_utf8(body.as_ref())
+        .map_err(|_| "error converting bytes to &str")?;
+    let json_body: Value = if body_str.is_empty() {
+        Value::Object(Map::new())
+    } else {
+        serde_json::from_str(body_str)
+            .map_err(|_| "cannot parse json")?
+    };
+    let env_vars = env_vars(body_str, &json_body);
+    exec(&handler_executable, &[], &env_vars).await
+}
+
 #[cfg(test)]
 mod tests {
     use super::*;
@@ -273,20 +290,4 @@ echo started
         let env = crate::environment::Environment::for_dir(dir.path().to_path_buf());
         assert!(get_handler_executable(&env, "missing").is_err());
     }
-}
-
-pub async fn execute(env: &Environment,
-                     name: String,
-                     body: Bytes) -> Result<ExecutionResult, String> {
-    let handler_executable = get_handler_executable(env, &name)?;
-    let body_str = std::str::from_utf8(body.as_ref())
-        .map_err(|_| "error converting bytes to &str")?;
-    let json_body: Value = if body_str.is_empty() {
-        Value::Object(Map::new())
-    } else {
-        serde_json::from_str(body_str)
-            .map_err(|_| "cannot parse json")?
-    };
-    let env_vars = env_vars(body_str, &json_body);
-    exec(&handler_executable, &[], &env_vars).await
 }

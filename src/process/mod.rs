@@ -72,6 +72,26 @@ impl EnvVar {
     }
 }
 
+
+pub async fn exec(executable: &Path,
+                  args: &[String],
+                  env_vars: &[EnvVar]) -> Result<ExecutionResult, String>
+{
+    let output = Command::new(executable)
+        .args(args)
+        .envs(env_vars.iter().map(|item| (item.name(), item.value())))
+        .output()
+        .await
+        .map_err(|e| format!("Failed to execute process [{}]. {}",
+                             pretty_printed_command(executable, args),
+                             e))?;
+    Ok(ExecutionResult {
+        code: exit_code(&output.status),
+        stdout: String::from_utf8_lossy(&output.stdout).into_owned(),
+        stderr: String::from_utf8_lossy(&output.stderr).into_owned(),
+    })
+}
+
 #[cfg(test)]
 mod tests {
     use super::*;
@@ -162,23 +182,4 @@ mod tests {
         let result = exec(Path::new("/bin/sh"), &["-c".to_string(), "echo $TEST_VAR".to_string()], &vars).await.unwrap();
         assert_eq!("hello_world\n", result.stdout());
     }
-}
-
-pub async fn exec(executable: &Path,
-                  args: &[String],
-                  env_vars: &[EnvVar]) -> Result<ExecutionResult, String>
-{
-    let output = Command::new(executable)
-        .args(args)
-        .envs(env_vars.iter().map(|item| (item.name(), item.value())))
-        .output()
-        .await
-        .map_err(|e| format!("Failed to execute process [{}]. {}",
-                             pretty_printed_command(executable, args),
-                             e))?;
-    Ok(ExecutionResult {
-        code: exit_code(&output.status),
-        stdout: String::from_utf8_lossy(&output.stdout).into_owned(),
-        stderr: String::from_utf8_lossy(&output.stderr).into_owned(),
-    })
 }
