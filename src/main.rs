@@ -147,16 +147,22 @@ async fn entry_point() -> Result<(), String> {
     match arguments.command() {
         Command::Server(server) => {
             let port_number = server.port()?;
+            let bind_address = server.bind()?;
+            if !bind_address.is_loopback() {
+                eprintln!("[WARN] {} is not loopback: ntfd has no authentication and will run handlers for anyone who can reach it",
+                          bind_address);
+            }
             // resolved once at startup so that a broken environment fails
             // loudly here instead of on every request
             let environment = Arc::new(environment::system_environment()?);
 
             let server = warp::serve(routes(environment))
-                .bind(([127, 0, 0, 1], port_number))
+                .bind((bind_address, port_number))
                 .await
                 .graceful(shutdown_signal());
 
-            println!("Started {{pid={} port={}}}", std::process::id(), port_number);
+            println!("Started {{pid={} address={} port={}}}",
+                     std::process::id(), bind_address, port_number);
             server.run().await;
             println!("Stopped");
             Ok(())
