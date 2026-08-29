@@ -3,8 +3,17 @@ name = "ntfd"
 version = "0.1.0"
 authors = ["Yury Antonov <1390348+yantonov@users.noreply.github.com>"]
 edition = "2024"
+description = "Tiny HTTP server that triggers notification handlers"
+repository = "https://github.com/yantonov/ntfd"
+license = "Apache-2.0"
+readme = "README.md"
 
 # See more keys and their definitions at https://doc.rust-lang.org/cargo/reference/manifest.html
+
+[profile.release]
+lto = true
+codegen-units = 1
+strip = true
 
 [dev-dependencies]
 tempfile = "3.27.0"
