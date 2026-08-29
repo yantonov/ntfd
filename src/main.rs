@@ -60,6 +60,63 @@ async fn handle_rejection(rejection: warp::Rejection)
     Err(rejection)
 }
 
+fn routes(environment: Arc<environment::Environment>)
+          -> impl Filter<Extract = (impl warp::Reply,), Error = warp::Rejection> + Clone {
+    warp::post()
+        .and(warp::path!("notify" / String))
+        .and(body_size_limit())
+        .and(warp::body::bytes())
+        .then(move |name: String, body: Bytes| {
+            let environment = environment.clone();
+            async move {
+                if !server::is_valid_key(&name) {
+                    return warp::reply::with_status(
+                        warp::reply::json(&Response {
+                            status: "Err".to_string(),
+                            code: -1,
+                            stdout: "".to_string(),
+                            stderr: "The Key should contain only alphanumeric characters".to_string(),
+                        }),
+                        StatusCode::BAD_REQUEST);
+                }
+                let result = handler::execute(&environment, name, body).await;
+                match result {
+                    Ok(ok) => {
+                        let status_text = if ok.code() == 0 {
+                            "Ok"
+                        } else {
+                            "Err"
+                        };
+                        let http_status = if ok.code() == 0 {
+                            StatusCode::OK
+                        } else {
+                            StatusCode::BAD_REQUEST
+                        };
+                        warp::reply::with_status(
+                            warp::reply::json(&Response {
+                                status: status_text.to_string(),
+                                code: ok.code(),
+                                stdout: ok.stdout().to_string(),
+                                stderr: ok.stderr().to_string(),
+                            }),
+                            http_status)
+                    }
+                    Err(e) => {
+                        warp::reply::with_status(
+                            warp::reply::json(&Response {
+                                status: "Err".to_string(),
+                                code: -1,
+                                stdout: "".to_string(),
+                                stderr: e,
+                            }),
+                            StatusCode::INTERNAL_SERVER_ERROR)
+                    }
+                }
+            }
+        })
+        .recover(handle_rejection)
+}
+
 async fn entry_point() -> Result<(), String> {
     let arguments = cli::arguments();
     match arguments.command() {
@@ -69,62 +126,8 @@ async fn entry_point() -> Result<(), String> {
             // loudly here instead of on every request
             let environment = Arc::new(environment::system_environment()?);
 
-            let hello = warp::post()
-                .and(warp::path!("notify" / String))
-                .and(body_size_limit())
-                .and(warp::body::bytes())
-                .then(move |name: String, body: Bytes| {
-                    let environment = environment.clone();
-                    async move {
-                        if !server::is_valid_key(&name) {
-                            return warp::reply::with_status(
-                                warp::reply::json(&Response {
-                                    status: "Err".to_string(),
-                                    code: -1,
-                                    stdout: "".to_string(),
-                                    stderr: "The Key should contain only alphanumeric characters".to_string(),
-                                }),
-                                StatusCode::BAD_REQUEST);
-                        }
-                        let result = handler::execute(&environment, name, body).await;
-                        match result {
-                            Ok(ok) => {
-                                let status_text = if ok.code() == 0 {
-                                    "Ok"
-                                } else {
-                                    "Err"
-                                };
-                                let http_status = if ok.code() == 0 {
-                                    StatusCode::OK
-                                } else {
-                                    StatusCode::BAD_REQUEST
-                                };
-                                warp::reply::with_status(
-                                    warp::reply::json(&Response {
-                                        status: status_text.to_string(),
-                                        code: ok.code(),
-                                        stdout: ok.stdout().to_string(),
-                                        stderr: ok.stderr().to_string(),
-                                    }),
-                                    http_status)
-                            }
-                            Err(e) => {
-                                warp::reply::with_status(
-                                    warp::reply::json(&Response {
-                                        status: "Err".to_string(),
-                                        code: -1,
-                                        stdout: "".to_string(),
-                                        stderr: e,
-                                    }),
-                                    StatusCode::INTERNAL_SERVER_ERROR)
-                            }
-                        }
-                    }
-                });
-            let routes = hello.recover(handle_rejection);
-
             println!("Started {{pid={} port={}}}", std::process::id(), port_number);
-            warp::serve(routes)
+            warp::serve(routes(environment))
                 .run(([127, 0, 0, 1], port_number))
                 .await;
             Ok(())
@@ -140,5 +143,168 @@ async fn main() {
             eprintln!("[ERROR] {}", message);
             std::process::exit(1);
         }
+    }
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+    use std::path::PathBuf;
+
+    fn env_for(dir: PathBuf) -> Arc<environment::Environment> {
+        Arc::new(environment::Environment::for_dir(dir))
+    }
+
+    #[cfg(unix)]
+    fn write_handler(dir: &std::path::Path, key: &str, script: &str) {
+        use std::io::Write;
+        use std::os::unix::fs::PermissionsExt;
+        let handler_dir = dir.join("conf").join(key);
+        std::fs::create_dir_all(&handler_dir).unwrap();
+        let run = handler_dir.join("run");
+        let mut file = std::fs::File::create(&run).unwrap();
+        file.write_all(script.as_bytes()).unwrap();
+        drop(file);
+        std::fs::set_permissions(&run, std::fs::Permissions::from_mode(0o755)).unwrap();
+    }
+
+    #[tokio::test]
+    async fn invalid_key_is_answered_with_400() {
+        let dir = tempfile::tempdir().unwrap();
+        let response = warp::test::request()
+            .method("POST")
+            .path("/notify/bad-key")
+            .reply(&routes(env_for(dir.path().to_path_buf())))
+            .await;
+        assert_eq!(StatusCode::BAD_REQUEST, response.status());
+    }
+
+    #[tokio::test]
+    async fn missing_handler_is_answered_with_500() {
+        let dir = tempfile::tempdir().unwrap();
+        let response = warp::test::request()
+            .method("POST")
+            .path("/notify/nosuch")
+            .reply(&routes(env_for(dir.path().to_path_buf())))
+            .await;
+        assert_eq!(StatusCode::INTERNAL_SERVER_ERROR, response.status());
+    }
+
+    #[tokio::test]
+    async fn oversized_body_is_answered_with_413() {
+        let dir = tempfile::tempdir().unwrap();
+        let body = vec![b'a'; (MAX_BODY_SIZE + 1) as usize];
+        let response = warp::test::request()
+            .method("POST")
+            .path("/notify/ping")
+            .body(body)
+            .reply(&routes(env_for(dir.path().to_path_buf())))
+            .await;
+        assert_eq!(StatusCode::PAYLOAD_TOO_LARGE, response.status());
+    }
+
+    #[tokio::test]
+    async fn get_is_not_allowed() {
+        let dir = tempfile::tempdir().unwrap();
+        let response = warp::test::request()
+            .method("GET")
+            .path("/notify/ping")
+            .reply(&routes(env_for(dir.path().to_path_buf())))
+            .await;
+        assert_eq!(StatusCode::METHOD_NOT_ALLOWED, response.status());
+    }
+
+    #[tokio::test]
+    async fn unknown_path_is_answered_with_404() {
+        let dir = tempfile::tempdir().unwrap();
+        let response = warp::test::request()
+            .method("POST")
+            .path("/nope")
+            .reply(&routes(env_for(dir.path().to_path_buf())))
+            .await;
+        assert_eq!(StatusCode::NOT_FOUND, response.status());
+    }
+
+    #[cfg(unix)]
+    #[tokio::test]
+    async fn successful_handler_is_answered_with_200_and_its_output() {
+        let dir = tempfile::tempdir().unwrap();
+        write_handler(dir.path(), "ping", "#!/bin/sh\necho pong\n");
+        let response = warp::test::request()
+            .method("POST")
+            .path("/notify/ping")
+            .reply(&routes(env_for(dir.path().to_path_buf())))
+            .await;
+        assert_eq!(StatusCode::OK, response.status());
+        let body: serde_json::Value =
+            serde_json::from_slice(response.body()).unwrap();
+        assert_eq!("Ok", body["status"]);
+        assert_eq!(0, body["code"]);
+        assert_eq!("pong\n", body["stdout"]);
+    }
+
+    #[cfg(unix)]
+    #[tokio::test]
+    async fn failing_handler_reports_its_exit_code() {
+        let dir = tempfile::tempdir().unwrap();
+        write_handler(dir.path(), "ping", "#!/bin/sh\necho oops >&2\nexit 3\n");
+        let response = warp::test::request()
+            .method("POST")
+            .path("/notify/ping")
+            .reply(&routes(env_for(dir.path().to_path_buf())))
+            .await;
+        assert_eq!(StatusCode::BAD_REQUEST, response.status());
+        let body: serde_json::Value =
+            serde_json::from_slice(response.body()).unwrap();
+        assert_eq!(3, body["code"]);
+        assert_eq!("oops\n", body["stderr"]);
+    }
+
+    #[cfg(unix)]
+    #[tokio::test]
+    async fn json_fields_reach_the_handler_as_env_vars() {
+        let dir = tempfile::tempdir().unwrap();
+        write_handler(dir.path(), "ping",
+                      "#!/bin/sh\necho \"$NTFD_JSON_FIELD_TITLE/$NTFD_JSON_FIELD_N\"\n");
+        let response = warp::test::request()
+            .method("POST")
+            .path("/notify/ping")
+            .body(r#"{"title":"hi","n":7}"#)
+            .reply(&routes(env_for(dir.path().to_path_buf())))
+            .await;
+        assert_eq!(StatusCode::OK, response.status());
+        let body: serde_json::Value =
+            serde_json::from_slice(response.body()).unwrap();
+        assert_eq!("hi/7\n", body["stdout"]);
+    }
+
+    #[cfg(unix)]
+    #[tokio::test]
+    async fn default_handler_is_used_for_an_unknown_key() {
+        let dir = tempfile::tempdir().unwrap();
+        write_handler(dir.path(), "default", "#!/bin/sh\necho fallback\n");
+        let response = warp::test::request()
+            .method("POST")
+            .path("/notify/whatever")
+            .reply(&routes(env_for(dir.path().to_path_buf())))
+            .await;
+        assert_eq!(StatusCode::OK, response.status());
+        let body: serde_json::Value =
+            serde_json::from_slice(response.body()).unwrap();
+        assert_eq!("fallback\n", body["stdout"]);
+    }
+
+    #[cfg(unix)]
+    #[tokio::test]
+    async fn malformed_json_is_answered_with_500() {
+        let dir = tempfile::tempdir().unwrap();
+        write_handler(dir.path(), "ping", "#!/bin/sh\necho pong\n");
+        let response = warp::test::request()
+            .method("POST")
+            .path("/notify/ping")
+            .body("not json")
+            .reply(&routes(env_for(dir.path().to_path_buf())))
+            .await;
+        assert_eq!(StatusCode::INTERNAL_SERVER_ERROR, response.status());
     }
 }
