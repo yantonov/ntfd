@@ -76,8 +76,7 @@ async fn entry_point() -> Result<(), String> {
                 .then(move |name: String, body: Bytes| {
                     let environment = environment.clone();
                     async move {
-                        let check_key = server::is_valid_key();
-                        if !check_key(&name) {
+                        if !server::is_valid_key(&name) {
                             return warp::reply::with_status(
                                 warp::reply::json(&Response {
                                     status: "Err".to_string(),
