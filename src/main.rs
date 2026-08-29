@@ -123,6 +123,25 @@ fn routes(environment: Arc<environment::Environment>)
         .recover(handle_rejection)
 }
 
+async fn shutdown_signal() {
+    #[cfg(unix)]
+    {
+        use tokio::signal::unix::{signal, SignalKind};
+        let mut terminate = match signal(SignalKind::terminate()) {
+            Ok(stream) => stream,
+            Err(_) => return std::future::pending().await,
+        };
+        tokio::select! {
+            _ = tokio::signal::ctrl_c() => {}
+            _ = terminate.recv() => {}
+        }
+    }
+    #[cfg(not(unix))]
+    {
+        let _ = tokio::signal::ctrl_c().await;
+    }
+}
+
 async fn entry_point() -> Result<(), String> {
     let arguments = cli::arguments();
     match arguments.command() {
@@ -132,10 +151,14 @@ async fn entry_point() -> Result<(), String> {
             // loudly here instead of on every request
             let environment = Arc::new(environment::system_environment()?);
 
+            let server = warp::serve(routes(environment))
+                .bind(([127, 0, 0, 1], port_number))
+                .await
+                .graceful(shutdown_signal());
+
             println!("Started {{pid={} port={}}}", std::process::id(), port_number);
-            warp::serve(routes(environment))
-                .run(([127, 0, 0, 1], port_number))
-                .await;
+            server.run().await;
+            println!("Stopped");
             Ok(())
         }
     }

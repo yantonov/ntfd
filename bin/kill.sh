@@ -5,4 +5,4 @@ cd "$(dirname "$0")"
 
 cd ..
 
-ps -ef | grep '[n]tfd' | grep 'server' | awk '{print $2}'  | xargs -n 1 kill -9
+ps -ef | grep '[n]tfd' | grep 'server' | awk '{print $2}'  | xargs -n 1 kill
