@@ -11,12 +11,53 @@ use cli::Command;
 use serde::{Serialize};
 use warp::http::StatusCode;
 
+/// The body only carries notification metadata, there is no reason
+/// to buffer more than this in memory.
+const MAX_BODY_SIZE: u64 = 64 * 1024;
+
 #[derive(Serialize)]
 struct Response {
     status: String,
     code: i32,
     stdout: String,
     stderr: String,
+}
+
+#[derive(Debug)]
+struct BodyTooLarge;
+
+impl warp::reject::Reject for BodyTooLarge {}
+
+/// Rejects oversized bodies before they are buffered into memory.
+/// A request without a content-length header is let through: curl sends
+/// none for a bodyless POST, and warp's own content_length_limit answers
+/// those with 411 instead.
+fn body_size_limit() -> impl Filter<Extract = (), Error = warp::Rejection> + Clone {
+    warp::header::optional::<u64>("content-length")
+        .and_then(|length: Option<u64>| async move {
+            match length {
+                Some(length) if length > MAX_BODY_SIZE => {
+                    Err(warp::reject::custom(BodyTooLarge))
+                }
+                _ => Ok(()),
+            }
+        })
+        .untuple_one()
+}
+
+async fn handle_rejection(rejection: warp::Rejection)
+                          -> Result<impl warp::Reply, warp::Rejection> {
+    if rejection.find::<BodyTooLarge>().is_some() {
+        return Ok(warp::reply::with_status(
+            warp::reply::json(&Response {
+                status: "Err".to_string(),
+                code: -1,
+                stdout: "".to_string(),
+                stderr: format!("body is larger than {} bytes", MAX_BODY_SIZE),
+            }),
+            StatusCode::PAYLOAD_TOO_LARGE));
+    }
+    Err(rejection)
 }
 
 async fn entry_point() -> Result<(), String> {
@@ -30,6 +71,7 @@ async fn entry_point() -> Result<(), String> {
 
             let hello = warp::post()
                 .and(warp::path!("notify" / String))
+                .and(body_size_limit())
                 .and(warp::body::bytes())
                 .map(move |name: String, body: Bytes| {
                     let check_key = server::is_valid_key();
@@ -77,8 +119,10 @@ async fn entry_point() -> Result<(), String> {
                         }
                     }
                 });
+            let routes = hello.recover(handle_rejection);
+
             println!("Started {{pid={} port={}}}", std::process::id(), port_number);
-            warp::serve(hello)
+            warp::serve(routes)
                 .run(([127, 0, 0, 1], port_number))
                 .await;
             Ok(())
