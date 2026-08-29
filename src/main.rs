@@ -85,7 +85,7 @@ async fn entry_point() -> Result<(), String> {
                                     stdout: "".to_string(),
                                     stderr: "The Key should contain only alphanumeric characters".to_string(),
                                 }),
-                                StatusCode::INTERNAL_SERVER_ERROR);
+                                StatusCode::BAD_REQUEST);
                         }
                         let result = handler::execute(&environment, name, body).await;
                         match result {
