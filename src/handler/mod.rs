@@ -187,8 +187,8 @@ mod tests {
     }
 
     #[cfg(unix)]
-    #[test]
-    fn handler_runs_when_the_install_path_contains_a_space() {
+    #[tokio::test]
+    async fn handler_runs_when_the_install_path_contains_a_space() {
         use std::io::Write;
         use std::os::unix::fs::PermissionsExt;
 
@@ -205,7 +205,7 @@ echo started
         std::fs::set_permissions(&run, std::fs::Permissions::from_mode(0o755)).unwrap();
 
         let env = crate::environment::Environment::for_dir(dir);
-        let result = execute(&env, "spaced".to_string(), Bytes::new()).unwrap();
+        let result = execute(&env, "spaced".to_string(), Bytes::new()).await.unwrap();
         assert_eq!(0, result.code());
         assert_eq!("started
 ", result.stdout());
@@ -219,9 +219,9 @@ echo started
     }
 }
 
-pub fn execute(env: &Environment,
-               name: String,
-               body: Bytes) -> Result<ExecutionResult, String> {
+pub async fn execute(env: &Environment,
+                     name: String,
+                     body: Bytes) -> Result<ExecutionResult, String> {
     let handler_executable = get_handler_executable(env, &name)?;
     let body_str = std::str::from_utf8(body.as_ref())
         .map_err(|_| "error converting bytes to &str")?;
@@ -232,5 +232,5 @@ pub fn execute(env: &Environment,
             .map_err(|_| "cannot parse json")?
     };
     let env_vars = env_vars(body_str, &json_body);
-    exec(&handler_executable, &[], &env_vars)
+    exec(&handler_executable, &[], &env_vars).await
 }

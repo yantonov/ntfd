@@ -1,5 +1,5 @@
 use std::path::Path;
-use std::process::{Command};
+use tokio::process::Command;
 
 fn pretty_printed_command(executable: &Path,
                           args: &[String]) -> String
@@ -106,72 +106,73 @@ mod tests {
         assert_eq!("my_value", var.value());
     }
 
-    #[test]
-    fn exec_returns_err_for_missing_executable() {
-        let result = exec(Path::new("/nonexistent/binary"), &[], &[]);
+    #[tokio::test]
+    async fn exec_returns_err_for_missing_executable() {
+        let result = exec(Path::new("/nonexistent/binary"), &[], &[]).await;
         assert!(result.is_err());
     }
 
     #[cfg(unix)]
-    #[test]
-    fn exec_captures_zero_exit_code() {
-        let result = exec(Path::new("/bin/sh"), &["-c".to_string(), "exit 0".to_string()], &[]).unwrap();
+    #[tokio::test]
+    async fn exec_captures_zero_exit_code() {
+        let result = exec(Path::new("/bin/sh"), &["-c".to_string(), "exit 0".to_string()], &[]).await.unwrap();
         assert_eq!(0, result.code());
     }
 
     #[cfg(unix)]
-    #[test]
-    fn exec_captures_nonzero_exit_code() {
-        let result = exec(Path::new("/bin/sh"), &["-c".to_string(), "exit 42".to_string()], &[]).unwrap();
+    #[tokio::test]
+    async fn exec_captures_nonzero_exit_code() {
+        let result = exec(Path::new("/bin/sh"), &["-c".to_string(), "exit 42".to_string()], &[]).await.unwrap();
         assert_eq!(42, result.code());
     }
 
     #[cfg(unix)]
-    #[test]
-    fn exec_captures_stdout() {
-        let result = exec(Path::new("/bin/sh"), &["-c".to_string(), "echo hello".to_string()], &[]).unwrap();
+    #[tokio::test]
+    async fn exec_captures_stdout() {
+        let result = exec(Path::new("/bin/sh"), &["-c".to_string(), "echo hello".to_string()], &[]).await.unwrap();
         assert_eq!("hello\n", result.stdout());
     }
 
     #[cfg(unix)]
-    #[test]
-    fn exec_captures_stderr() {
-        let result = exec(Path::new("/bin/sh"), &["-c".to_string(), "echo error >&2".to_string()], &[]).unwrap();
+    #[tokio::test]
+    async fn exec_captures_stderr() {
+        let result = exec(Path::new("/bin/sh"), &["-c".to_string(), "echo error >&2".to_string()], &[]).await.unwrap();
         assert_eq!("error\n", result.stderr());
     }
 
     #[cfg(unix)]
-    #[test]
-    fn exec_reports_signal_termination_as_128_plus_signal() {
-        let result = exec(Path::new("/bin/sh"), &["-c".to_string(), "kill -9 $$".to_string()], &[]).unwrap();
+    #[tokio::test]
+    async fn exec_reports_signal_termination_as_128_plus_signal() {
+        let result = exec(Path::new("/bin/sh"), &["-c".to_string(), "kill -9 $$".to_string()], &[]).await.unwrap();
         assert_eq!(137, result.code());
     }
 
     #[cfg(unix)]
-    #[test]
-    fn exec_does_not_panic_on_invalid_utf8_output() {
-        let result = exec(Path::new("/bin/sh"), &["-c".to_string(), "printf '\\377'".to_string()], &[]).unwrap();
+    #[tokio::test]
+    async fn exec_does_not_panic_on_invalid_utf8_output() {
+        let result = exec(Path::new("/bin/sh"), &["-c".to_string(), "printf '\\377'".to_string()], &[]).await.unwrap();
         assert_eq!(0, result.code());
         assert_eq!("\u{fffd}", result.stdout());
     }
 
     #[cfg(unix)]
-    #[test]
-    fn exec_passes_env_vars_to_subprocess() {
+    #[tokio::test]
+    async fn exec_passes_env_vars_to_subprocess() {
         let vars = vec![EnvVar::new("TEST_VAR", "hello_world")];
-        let result = exec(Path::new("/bin/sh"), &["-c".to_string(), "echo $TEST_VAR".to_string()], &vars).unwrap();
+        let result = exec(Path::new("/bin/sh"), &["-c".to_string(), "echo $TEST_VAR".to_string()], &vars).await.unwrap();
         assert_eq!("hello_world\n", result.stdout());
     }
 }
 
-pub fn exec(executable: &Path,
-            args: &[String],
-            env_vars: &[EnvVar]) -> Result<ExecutionResult, String>
+pub async fn exec(executable: &Path,
+                  args: &[String],
+                  env_vars: &[EnvVar]) -> Result<ExecutionResult, String>
 {
     let output = Command::new(executable)
         .args(args)
         .envs(env_vars.iter().map(|item| (item.name(), item.value())))
         .output()
+        .await
         .map_err(|e| format!("Failed to execute process [{}]. {}",
                              pretty_printed_command(executable, args),
                              e))?;

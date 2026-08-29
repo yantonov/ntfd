@@ -1,6 +1,6 @@
 use regex::Regex;
 
-pub fn is_valid_key() -> Box<dyn Fn(&str) -> bool> {
+pub fn is_valid_key() -> Box<dyn Fn(&str) -> bool + Send + Sync> {
     let re = Regex::new(&format!("^[a-zA-Z0-9_]+$")).unwrap();
     Box::new(move |key| re.is_match(key))
 }

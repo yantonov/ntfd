@@ -73,49 +73,52 @@ async fn entry_point() -> Result<(), String> {
                 .and(warp::path!("notify" / String))
                 .and(body_size_limit())
                 .and(warp::body::bytes())
-                .map(move |name: String, body: Bytes| {
-                    let check_key = server::is_valid_key();
-                    if !check_key(&name) {
-                        return warp::reply::with_status(
-                            warp::reply::json(&Response {
-                                status: "Err".to_string(),
-                                code: -1,
-                                stdout: "".to_string(),
-                                stderr: "The Key should contain only alphanumeric characters".to_string(),
-                            }),
-                            StatusCode::INTERNAL_SERVER_ERROR);
-                    }
-                    let result = handler::execute(&environment, name, body);
-                    match result {
-                        Ok(ok) => {
-                            let status_text = if ok.code() == 0 {
-                                "Ok"
-                            } else {
-                                "Err"
-                            };
-                            let http_status = if ok.code() == 0 {
-                                StatusCode::OK
-                            } else {
-                                StatusCode::BAD_REQUEST
-                            };
-                            warp::reply::with_status(
-                                warp::reply::json(&Response {
-                                    status: status_text.to_string(),
-                                    code: ok.code(),
-                                    stdout: ok.stdout().to_string(),
-                                    stderr: ok.stderr().to_string(),
-                                }),
-                                http_status)
-                        }
-                        Err(e) => {
-                            warp::reply::with_status(
+                .then(move |name: String, body: Bytes| {
+                    let environment = environment.clone();
+                    async move {
+                        let check_key = server::is_valid_key();
+                        if !check_key(&name) {
+                            return warp::reply::with_status(
                                 warp::reply::json(&Response {
                                     status: "Err".to_string(),
                                     code: -1,
                                     stdout: "".to_string(),
-                                    stderr: e,
+                                    stderr: "The Key should contain only alphanumeric characters".to_string(),
                                 }),
-                                StatusCode::INTERNAL_SERVER_ERROR)
+                                StatusCode::INTERNAL_SERVER_ERROR);
+                        }
+                        let result = handler::execute(&environment, name, body).await;
+                        match result {
+                            Ok(ok) => {
+                                let status_text = if ok.code() == 0 {
+                                    "Ok"
+                                } else {
+                                    "Err"
+                                };
+                                let http_status = if ok.code() == 0 {
+                                    StatusCode::OK
+                                } else {
+                                    StatusCode::BAD_REQUEST
+                                };
+                                warp::reply::with_status(
+                                    warp::reply::json(&Response {
+                                        status: status_text.to_string(),
+                                        code: ok.code(),
+                                        stdout: ok.stdout().to_string(),
+                                        stderr: ok.stderr().to_string(),
+                                    }),
+                                    http_status)
+                            }
+                            Err(e) => {
+                                warp::reply::with_status(
+                                    warp::reply::json(&Response {
+                                        status: "Err".to_string(),
+                                        code: -1,
+                                        stdout: "".to_string(),
+                                        stderr: e,
+                                    }),
+                                    StatusCode::INTERNAL_SERVER_ERROR)
+                            }
                         }
                     }
                 });
