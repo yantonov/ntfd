@@ -2,32 +2,18 @@ use std::env;
 use std::path::{PathBuf};
 
 pub struct Environment {
-    executable_name: String,
     executable_dir: PathBuf,
-    args: Vec<String>,
 }
 
 impl Environment {
-    #[allow(dead_code)]
-    pub fn executable_name(&self) -> &String {
-        &self.executable_name
-    }
-
     pub fn executable_dir(&self) -> &PathBuf {
         &self.executable_dir
-    }
-
-    #[allow(dead_code)]
-    pub fn call_arguments(&self) -> &[String] {
-        &self.args[1..self.args.len()]
     }
 
     #[cfg(test)]
     pub fn for_dir(dir: PathBuf) -> Environment {
         Environment {
-            executable_name: "test".to_string(),
             executable_dir: dir,
-            args: vec![],
         }
     }
 }
@@ -35,17 +21,6 @@ impl Environment {
 struct SystemEnvironment {}
 
 impl SystemEnvironment {
-    pub fn executable_name(&self) -> Result<String, String> {
-        env::current_exe()
-            .map(|x| x
-                .file_name()
-                .expect("cannot detect filename")
-                .to_str()
-                .expect("cannot convert filename to string")
-                .to_string())
-            .map_err(|_| "cannot get current executable".to_string())
-    }
-
     pub fn executable_dir(&self) -> Result<PathBuf, String> {
         let executable = env::current_exe()
             .map_err(|_| "cannot get current executable")?;
@@ -56,17 +31,11 @@ impl SystemEnvironment {
             Some(v) => Ok(v),
         }
     }
-
-    pub fn call_arguments(&self) -> Vec<String> {
-        env::args().collect()
-    }
 }
 
 pub fn system_environment() -> Result<Environment, String> {
     let sys_env = SystemEnvironment {};
     Ok(Environment {
-        executable_name: sys_env.executable_name()?,
         executable_dir: sys_env.executable_dir()?,
-        args: sys_env.call_arguments(),
     })
 }
